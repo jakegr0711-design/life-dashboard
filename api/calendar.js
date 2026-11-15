@@ -1,6 +1,7 @@
 import { requireAuth } from "./_lib/auth.js";
 import { readState, storageReady } from "./_lib/store.js";
 import { expandFeed, feedKind, normalizeUrl } from "./_lib/ics.js";
+import { connection, googleConfigured, listEvents } from "./_lib/google.js";
 
 const cache = new Map(); // url -> { at, text }
 const TTL = 5 * 60 * 1000;
@@ -48,10 +49,31 @@ export default async function handler(req, res) {
   feeds = feeds.filter((f) => f.url && f.enabled !== false);
 
   const now = Date.now();
-  const from = new Date(now - 2 * 864e5);
+  const from = new Date(now - 8 * 864e5);
   const to = new Date(now + 60 * 864e5);
   const events = [];
   const status = [];
+
+  // Two-way Google connection replaces the read-only Google feed for the main calendar
+  const google = { configured: googleConfigured(), connected: false, email: "", error: "" };
+  if (google.configured && storageReady()) {
+    try {
+      const c = await connection();
+      google.connected = c.connected && !c.expired;
+      google.email = c.email;
+      if (c.expired) google.error = "Google access expired. Reconnect in Settings.";
+      if (google.connected) {
+        const evs = await listEvents(from, to);
+        events.push(...evs);
+        status.push({ label: "Google Calendar (two-way)", kind: "calendar", ok: true, count: evs.length });
+        const mine = [google.email, encodeURIComponent(google.email)].filter(Boolean);
+        feeds = feeds.filter((f) => !(/calendar\.google\.com/i.test(f.url) && mine.some((m) => f.url.includes(m))));
+      }
+    } catch (e) {
+      google.connected = false;
+      google.error = e.message;
+    }
+  }
 
   await Promise.all(
     feeds.map(async (f) => {
@@ -70,7 +92,7 @@ export default async function handler(req, res) {
 
   const seen = new Set();
   const unique = events.filter((e) => {
-    const k = `${e.title}|${e.start || e.date}`;
+    const k = e.gid ? e.id : `${e.title}|${e.start || e.date}`;
     if (seen.has(k)) return false;
     seen.add(k);
     return true;
@@ -78,7 +100,8 @@ export default async function handler(req, res) {
   unique.sort((a, b) => (a.start || a.date + "T00").localeCompare(b.start || b.date + "T00"));
 
   res.status(200).json({
-    configured: feeds.length > 0,
+    google,
+    configured: feeds.length > 0 || google.connected,
     hasCanvas: status.some((s) => s.kind === "canvas" && s.ok),
     hasCalendar: status.some((s) => s.kind === "calendar" && s.ok),
     status,

@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { ArrowUpRight, CalendarClock, MapPin, Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowUpRight, CalendarClock, CalendarPlus, MapPin } from "lucide-react";
 import type { ViewProps } from "@/App";
 import { useData } from "@/lib/data";
 import { addDays, countdown, dayKey, daysBetween, fmtShort, fmtTime, inDays, relDay } from "@/lib/time";
-import { uid } from "@/lib/utils";
+import type { Ev } from "@/lib/types";
 import { Badge, catColor, Empty, Meter, Panel } from "@/components/ui/misc";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/field";
+import { AddTodo, sortOpen, TodoItem } from "@/components/todos";
+import { AddEventDialog, DeleteEventDialog } from "@/components/events";
 import { DueList, EventRow } from "@/components/shared";
 
 function useNow(ms = 30000) {
@@ -16,8 +17,10 @@ function useNow(ms = 30000) {
 }
 
 export default function Today({ go, openSettings }: ViewProps) {
-  const { life, events, live, due, dueLive, state } = useData();
+  const { life, events, live, due, dueLive, state, google } = useData();
   const now = useNow();
+  const [adding, setAdding] = useState(false);
+  const [deleting, setDeleting] = useState<Ev | null>(null);
   const today = dayKey(now);
   if (!life) return null;
 
@@ -76,16 +79,24 @@ export default function Today({ go, openSettings }: ViewProps) {
 
       <SemesterPanel today={today} />
 
-      <Panel title="Today" className="md:col-span-5" action={<Button variant="ghost" size="sm" onClick={() => go("week")}>Week view</Button>}>
+      <Panel
+        title="Today" className="md:col-span-4"
+        action={
+          <div className="flex items-center">
+            {google.connected && <Button variant="ghost" size="sm" onClick={() => setAdding(true)}><CalendarPlus /> Add event</Button>}
+            <Button variant="ghost" size="sm" onClick={() => go("week")}>Week</Button>
+          </div>
+        }
+      >
         {todays.length === 0 ? (
           <Empty>Nothing scheduled today.</Empty>
         ) : (
-          <ul className="space-y-2">{todays.map((e) => <EventRow key={e.id} ev={e} now={now} />)}</ul>
+          <ul className="space-y-2">{todays.map((e) => <EventRow key={e.id} ev={e} now={now} onDelete={setDeleting} />)}</ul>
         )}
         {!todays.some((e) => !e.end || e.end > now) && tomorrow.length > 0 && (
           <div className="mt-5 border-t border-line pt-4">
             <h3 className="mb-2 text-sm font-bold text-muted-fg">Tomorrow</h3>
-            <ul className="space-y-2">{tomorrow.map((e) => <EventRow key={e.id} ev={e} now={now} />)}</ul>
+            <ul className="space-y-2">{tomorrow.map((e) => <EventRow key={e.id} ev={e} now={now} onDelete={setDeleting} />)}</ul>
           </div>
         )}
       </Panel>
@@ -99,10 +110,13 @@ export default function Today({ go, openSettings }: ViewProps) {
         <Button variant="ghost" size="sm" className="mt-3 -ml-3" onClick={() => go("school")}>All deadlines</Button>
       </Panel>
 
-      <div className="grid gap-4 md:col-span-3 md:gap-5">
+      <div className="grid content-start gap-4 md:col-span-4 md:gap-5">
+        {state && <TodoWidget go={go} />}
         <FollowUps go={go} />
-        {state && <Todos />}
       </div>
+
+      {adding && <AddEventDialog open onOpenChange={setAdding} />}
+      <DeleteEventDialog ev={deleting} onClose={() => setDeleting(null)} />
     </div>
   );
 }
@@ -173,47 +187,19 @@ function FollowUps({ go }: { go: (t: string) => void }) {
   );
 }
 
-function Todos() {
-  const { state, update } = useData();
-  const [text, setText] = useState("");
+function TodoWidget({ go }: { go: (t: string) => void }) {
+  const { state } = useData();
   if (!state) return null;
-  const open = state.todos.filter((t) => !t.done);
-  const done = state.todos.filter((t) => t.done);
-
-  function add(e: FormEvent) {
-    e.preventDefault();
-    const v = text.trim();
-    if (!v) return;
-    update((s) => { s.todos.unshift({ id: uid(), text: v, done: false }); });
-    setText("");
-  }
-
+  const open = sortOpen(state.todos.filter((t) => !t.done));
   return (
-    <Panel title="To-do">
-      <form onSubmit={add} className="flex gap-2">
-        <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Add a task" aria-label="New task" />
-        <Button type="submit" size="icon" aria-label="Add task"><Plus /></Button>
-      </form>
-      <ul className="mt-3 space-y-1">
-        {[...open, ...done.slice(0, 5)].map((t) => (
-          <li key={t.id} className="group flex items-start gap-2">
-            <label className="flex min-h-11 flex-1 cursor-pointer items-start gap-3 py-2 text-sm leading-snug">
-              <input
-                type="checkbox" checked={t.done} className="mt-0.5 size-5 shrink-0 accent-[#0f766e]"
-                onChange={() => update((s) => { const x = s.todos.find((y) => y.id === t.id); if (x) x.done = !x.done; })}
-              />
-              <span className={t.done ? "text-muted-fg line-through" : ""}>{t.text}</span>
-            </label>
-            <button
-              type="button" aria-label={`Delete ${t.text}`}
-              onClick={() => update((s) => { s.todos = s.todos.filter((y) => y.id !== t.id); })}
-              className="grid size-11 shrink-0 place-items-center rounded-lg text-muted-fg opacity-100 hover:bg-danger-soft hover:text-danger md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100"
-            >
-              <Trash2 className="size-4" />
-            </button>
-          </li>
-        ))}
-      </ul>
+    <Panel title="To-do" action={<Button variant="ghost" size="sm" onClick={() => go("todos")}>All lists</Button>}>
+      <AddTodo compact chooseList />
+      {open.length === 0 ? (
+        <p className="mt-3 text-sm text-muted-fg">All clear.</p>
+      ) : (
+        <ul className="mt-2 divide-y divide-line">{open.slice(0, 8).map((t) => <TodoItem key={t.id} todo={t} showList compact />)}</ul>
+      )}
+      {open.length > 8 && <Button variant="ghost" size="sm" className="-ml-3 mt-1" onClick={() => go("todos")}>{open.length - 8} more</Button>}
     </Panel>
   );
 }

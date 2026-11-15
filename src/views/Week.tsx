@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarPlus, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import type { Ev } from "@/lib/types";
+import { AddEventDialog, DeleteEventDialog } from "@/components/events";
 import type { ViewProps } from "@/App";
 import { useData } from "@/lib/data";
 import { addDays, dayKey, fmtShort, fmtWeekday, isoWeekday, weekStart } from "@/lib/time";
@@ -9,7 +11,9 @@ import { Badge, catColor } from "@/components/ui/misc";
 import { EventRow } from "@/components/shared";
 
 export default function Week({ openSettings }: ViewProps) {
-  const { life, events, live, due } = useData();
+  const { life, events, live, due, google } = useData();
+  const [addOn, setAddOn] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<Ev | null>(null);
   const today = dayKey();
   // On weekends, open on the coming week
   const current = isoWeekday(today) >= 6 ? addDays(weekStart(today), 7) : weekStart(today);
@@ -32,7 +36,9 @@ export default function Week({ openSettings }: ViewProps) {
             <Button variant="ghost" size="sm" onClick={() => setStart(current)}>{isoWeekday(today) >= 6 ? "Next week" : "This week"}</Button>
           )}
         </div>
-        {live ? <Badge>Live from Google Calendar</Badge> : (
+        {google.connected ? (
+          <Button onClick={() => setAddOn(today)}><CalendarPlus /> Add event</Button>
+        ) : live ? <Badge>Live from Google Calendar</Badge> : (
           <p className="text-sm text-muted-fg">
             Typical week.{" "}
             <button type="button" onClick={openSettings} className="font-semibold text-primary-strong underline underline-offset-2">Link your calendar</button>
@@ -54,9 +60,15 @@ export default function Week({ openSettings }: ViewProps) {
               <p className={cn("mb-2 flex items-baseline gap-1.5 text-sm font-bold", isToday && "text-primary-strong")}>
                 {fmtWeekday(d)} <span className="font-semibold text-muted-fg">{fmtShort(d).replace(/^\w+ /, "")}</span>
                 {isToday && <span className="ml-auto text-xs">Today</span>}
+                {google.connected && (
+                  <button type="button" onClick={() => setAddOn(d)} aria-label={`Add event on ${fmtShort(d)}`}
+                    className={cn("grid size-8 place-items-center rounded-lg text-muted-fg hover:bg-muted hover:text-fg", !isToday && "ml-auto")}>
+                    <Plus className="size-4" />
+                  </button>
+                )}
               </p>
               {evs.length === 0 && dues.length === 0 && <p className="text-xs text-muted-fg">Free</p>}
-              <ul className="space-y-1.5">{evs.map((e) => <EventRow key={e.id} ev={e} now={now} compact />)}</ul>
+              <ul className="space-y-1.5">{evs.map((e) => <EventRow key={e.id} ev={e} now={now} compact onDelete={setDeleting} />)}</ul>
               {dues.length > 0 && (
                 <ul className="mt-2 space-y-1 border-t border-line pt-2">
                   {dues.map((x) => (
@@ -70,6 +82,9 @@ export default function Week({ openSettings }: ViewProps) {
           );
         })}
       </ol>
+
+      {addOn && <AddEventDialog key={addOn} open date={addOn} onOpenChange={(o) => !o && setAddOn(null)} />}
+      <DeleteEventDialog ev={deleting} onClose={() => setDeleting(null)} />
     </div>
   );
 }

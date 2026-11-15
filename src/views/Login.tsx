@@ -28,10 +28,10 @@ export default function Login({ status }: { status: string }) {
           <Lock className="size-5" aria-hidden />
         </div>
         <h1 className="text-2xl font-extrabold tracking-tight">Jake's dashboard</h1>
-        <p className="mt-1 text-sm text-muted-fg">Enter your passcode to see your schedule and networking.</p>
+        <p className="mt-1 text-sm text-muted-fg">Enter your passcode to see your schedule, to-dos and networking.</p>
         <Field label="Passcode" className="mt-5">
           <Input
-            type="password" autoComplete="current-password" autoFocus value={passcode}
+            type="password" autoComplete="current-password" autoFocus value={passcode} inputMode="text"
             onChange={(e) => setPasscode(e.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? "login-error" : undefined}
           />
         </Field>

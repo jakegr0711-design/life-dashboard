@@ -36,7 +36,18 @@ export default {
     career: { label: "Career", color: "#0F766E" },
     network: { label: "Networking", color: "#EA580C" },
     personal: { label: "Personal", color: "#475569" },
+    general: { label: "General", color: "#0F766E" },
   },
+
+  // Tabs on the To-dos page. "general" is for everything else.
+  todoLists: [
+    { id: "general", label: "General" },
+    { id: "rem", label: "Rem" },
+    { id: "gatortech", label: "GatorTech" },
+    { id: "dailybread", label: "Daily Bread" },
+    { id: "footballhotbed", label: "Football Hotbed" },
+    { id: "ta", label: "CGS2531 TA" },
+  ],
 
   // Keywords used to color live calendar events by involvement
   matchers: [

@@ -45,6 +45,7 @@ export function expandFeed(text, { from, to, source, kind }) {
       course,
       allDay,
       date: allDay ? start.toString().slice(0, 10) : null,
+      endDate: allDay && end ? end.toString().slice(0, 10) : null,
       start: allDay ? null : s.toISOString(),
       end: allDay ? null : e.toISOString(),
       location: (item.location || "").trim(),

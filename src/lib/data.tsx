@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { CalendarResponse, DueItem, Ev, Life, State } from "./types";
+import type { CalendarResponse, DueItem, Ev, GoogleStatus, Life, NewEvent, State } from "./types";
 import { addDays, dayKey, isoWeekday, zoned } from "./time";
 
 type Status = "loading" | "signed_out" | "not_configured" | "ready" | "error";
@@ -16,9 +16,15 @@ type Ctx = {
   live: boolean;
   due: DueItem[];
   dueLive: boolean;
+  google: GoogleStatus;
+  addEvent: (e: NewEvent) => Promise<string | null>;
+  deleteEvent: (gid: string) => Promise<string | null>;
+  disconnectGoogle: () => Promise<void>;
   update: (mutate: (s: State) => State | void) => void;
   refreshCalendar: () => void;
   signIn: (passcode: string) => Promise<string | null>;
+  notice: string | null;
+  setNotice: (n: string | null) => void;
   signOut: () => Promise<void>;
   dismissError: () => void;
 };
@@ -41,6 +47,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [stateError, setStateError] = useState<string | null>(null);
   const [calendar, setCalendar] = useState<CalendarResponse | null>(null);
   const [calendarLoading, setCalendarLoading] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const stateRef = useRef<State | null>(null);
   const version = useRef(0);
   const queue = useRef<Promise<void>>(Promise.resolve());
@@ -71,6 +78,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (j.storage) {
         const s = await fetch("/api/state").then((x) => (x.ok ? x.json() : null));
         if (s?.state) {
+          for (const t of s.state.todos || []) t.list = t.list || "general";
           stateRef.current = s.state;
           version.current = s.state.version || 0;
           setState(s.state);
@@ -128,7 +136,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ passcode }),
     });
     if (r.ok) { setStatus("loading"); await load(); return null; }
-    if (r.status === 401) return "That passcode doesn't match. Check it and try again.";
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 429) return `Too many wrong tries. Sign-in is paused for ${j.minutes || 15} more minute${j.minutes === 1 ? "" : "s"}.`;
+    if (r.status === 401) {
+      return j.remaining > 0 && j.remaining <= 3
+        ? `That passcode doesn't match. ${j.remaining} ${j.remaining === 1 ? "try" : "tries"} left before sign-in pauses for 15 minutes.`
+        : "That passcode doesn't match. Check it and try again.";
+    }
     return "Sign-in isn't set up on the server yet.";
   }, [load]);
 
@@ -146,13 +160,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (live && calendar) {
       return calendar.events
         .filter((e) => !e.due)
-        .map((e) => {
+        .flatMap((e) => {
           const start = e.start ? new Date(e.start) : undefined;
-          return {
+          const base: Ev = {
             id: e.id, title: e.title.replace(/\s*\[[A-Z]{3}\d{4}[A-Z]?\]\s*$/, ""), allDay: e.allDay,
             date: e.allDay ? e.date! : dayKey(start), start, end: e.end ? new Date(e.end) : undefined,
             location: e.location, course: e.course, cat: categorize(life, e.title),
+            gid: e.editable ? e.gid : undefined, recurring: e.recurring, link: e.link,
           };
+          if (!e.allDay || !e.endDate) return [base];
+          // all-day events that span several days show on each day (end date is exclusive)
+          const days: Ev[] = [];
+          for (let d = base.date; d < e.endDate && days.length < 31; d = addDays(d, 1)) days.push({ ...base, id: `${base.id}:${d}`, date: d });
+          return days.length ? days : [base];
         });
     }
     // Typical week from the template, for the past week through the next 8 weeks
@@ -188,8 +208,40 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return life.dueSnapshot.items.map((d, i) => ({ id: `snap-${i}`, ...d, ta: Boolean(d.ta) }));
   }, [life, calendar, dueLive]);
 
+  const google: GoogleStatus = calendar?.google || { configured: false, connected: false, email: "", error: "" };
+
+  const addEvent = useCallback(async (e: NewEvent) => {
+    try {
+      const r = await fetch("/api/google/events", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(e) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) return j.error || "Couldn't add the event. Try again.";
+      await loadCalendar();
+      return null;
+    } catch {
+      return "Couldn't reach the server. Check your connection and try again.";
+    }
+  }, [loadCalendar]);
+
+  const deleteEvent = useCallback(async (gid: string) => {
+    try {
+      const r = await fetch(`/api/google/events?id=${encodeURIComponent(gid)}`, { method: "DELETE" });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) return j.error || "Couldn't delete the event. Try again.";
+      setCalendar((c) => (c ? { ...c, events: c.events.filter((x) => x.gid !== gid) } : c));
+      return null;
+    } catch {
+      return "Couldn't reach the server. Check your connection and try again.";
+    }
+  }, []);
+
+  const disconnectGoogle = useCallback(async () => {
+    await fetch("/api/google/events?action=disconnect", { method: "POST" });
+    await loadCalendar();
+  }, [loadCalendar]);
+
   const value: Ctx = {
     status, life, storage, state, stateError, calendar, calendarLoading, events, live, due, dueLive,
+    google, addEvent, deleteEvent, disconnectGoogle, notice, setNotice,
     update, refreshCalendar: loadCalendar, signIn, signOut, dismissError: () => setStateError(null),
   };
   return <DataCtx.Provider value={value}>{children}</DataCtx.Provider>;

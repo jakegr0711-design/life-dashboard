@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle2, CircleAlert, Trash2 } from "lucide-react";
+import { CheckCircle2, CircleAlert, Copy, Link2, Trash2 } from "lucide-react";
 import { useData } from "@/lib/data";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,9 @@ const mask = (url: string) => {
 };
 
 export default function Settings({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
-  const { state, update, calendar, refreshCalendar, storage } = useData();
+  const { state, update, calendar, refreshCalendar, storage, google, disconnectGoogle } = useData();
+  const [copied, setCopied] = useState(false);
+  const redirect = `${window.location.origin}/api/google/callback`;
   const [label, setLabel] = useState("");
   const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -37,10 +39,43 @@ export default function Settings({ open, onOpenChange }: { open: boolean; onOpen
         <p className="text-sm text-muted-fg">Storage isn't connected yet, so settings can't be saved.</p>
       ) : (
         <div className="space-y-6">
+          <section aria-labelledby="google-h" className="rounded-xl border border-line p-4">
+            <h3 id="google-h" className="font-bold">Google Calendar (add and delete events)</h3>
+            {google.connected ? (
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+                <p className="flex items-center gap-2 text-sm">
+                  <CheckCircle2 className="size-5 text-primary" aria-hidden />
+                  Connected{google.email ? ` as ${google.email}` : ""}. Add events from Today or Week; hover an event to delete it.
+                </p>
+                <Button variant="outline" size="sm" onClick={disconnectGoogle}>Disconnect</Button>
+              </div>
+            ) : google.configured ? (
+              <div className="mt-2 space-y-3">
+                <p className="text-sm leading-relaxed text-muted-fg">
+                  {google.error || "Sign in with Google once and the dashboard can read, add and delete events on your main calendar."}
+                </p>
+                <a href="/api/google/connect" className="inline-flex h-11 items-center gap-2 rounded-lg bg-primary-strong px-4 text-sm font-semibold text-white hover:bg-[#115e59]">
+                  <Link2 className="size-4" aria-hidden /> {google.error ? "Reconnect Google Calendar" : "Connect Google Calendar"}
+                </a>
+              </div>
+            ) : (
+              <div className="mt-2 space-y-2 text-sm leading-relaxed text-muted-fg">
+                <p>This needs a one-time Google setup. Follow "Two-way Google Calendar" in the README, then add <code className="rounded bg-muted px-1">GOOGLE_CLIENT_ID</code> and <code className="rounded bg-muted px-1">GOOGLE_CLIENT_SECRET</code> in Vercel and redeploy.</p>
+                <p>When Google asks for an authorized redirect URI, use:</p>
+                <div className="flex items-center gap-2">
+                  <code className="min-w-0 flex-1 truncate rounded-lg bg-muted px-3 py-2 text-xs text-fg">{redirect}</code>
+                  <Button variant="outline" size="sm" onClick={() => { navigator.clipboard?.writeText(redirect).then(() => setCopied(true)).catch(() => {}); }}>
+                    <Copy /> {copied ? "Copied" : "Copy"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </section>
+
           <section aria-labelledby="feeds-h">
-            <h3 id="feeds-h" className="font-bold">Calendar feeds</h3>
+            <h3 id="feeds-h" className="font-bold">Read-only calendar feeds</h3>
             <p className="mt-1 text-sm leading-relaxed text-muted-fg">
-              Feeds are private links that let the dashboard read your calendar. They're stored privately and only used by your dashboard.
+              Private links the dashboard reads from, like your Canvas feed. {google.connected ? "Your main Google Calendar already comes through the connection above, so you only need Canvas and any extra calendars here." : "They're stored privately and only used by your dashboard."}
             </p>
 
             <ul className="mt-3 space-y-2">

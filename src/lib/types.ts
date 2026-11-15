@@ -18,6 +18,7 @@ export type Life = {
   career: { title: string; when: string; status: string }[];
   keyDates: { date?: string; end?: string; label?: string; sort?: string; title: string; cat: string }[];
   links: { label: string; url: string }[];
+  todoLists: { id: string; label: string }[];
   dueSnapshot: { asOf: string; items: { date: string; time?: string; course: string; title: string; ta?: boolean }[] };
   networking: {
     firms: { id: string; name: string; careers: string }[];
@@ -28,9 +29,13 @@ export type Life = {
 export type FeedEvent = {
   id: string; title: string; course: string | null; allDay: boolean; date: string | null;
   start: string | null; end: string | null; location: string; source: string; kind: "canvas" | "calendar"; due: boolean;
+  endDate?: string | null; gid?: string; editable?: boolean; recurring?: boolean; link?: string;
 };
 
+export type GoogleStatus = { configured: boolean; connected: boolean; email: string; error: string };
+
 export type CalendarResponse = {
+  google?: GoogleStatus;
   configured: boolean; hasCanvas: boolean; hasCalendar: boolean;
   status: { label: string; kind: string; ok: boolean; count?: number; message?: string }[];
   events: FeedEvent[]; fetchedAt: string;
@@ -39,7 +44,11 @@ export type CalendarResponse = {
 /** Unified event used by every view */
 export type Ev = {
   id: string; title: string; date: string; allDay: boolean; start?: Date; end?: Date;
-  location: string; cat: string; course?: string | null;
+  location: string; cat: string; course?: string | null; gid?: string; recurring?: boolean; link?: string;
+};
+
+export type NewEvent = {
+  title: string; date: string; endDate?: string; allDay: boolean; start?: string; end?: string; location?: string; notes?: string;
 };
 
 export type DueItem = { id: string; date: string; time?: string; course: string; title: string; ta: boolean };
@@ -53,7 +62,7 @@ export type Contact = {
   stage: Stage; lastContact: string; nextFollowUp: string; email: string; linkedin: string; notes: string; log: LogEntry[];
 };
 
-export type Todo = { id: string; text: string; done: boolean; due?: string };
+export type Todo = { id: string; list: string; text: string; done: boolean; due?: string; doneAt?: string; createdAt?: string };
 
 export type Feed = { label: string; url: string; enabled: boolean };
 

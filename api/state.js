@@ -16,8 +16,9 @@ function clean(input) {
       weeklyChatGoal: Math.max(0, Math.min(50, Number(settings.weeklyChatGoal) || 3)),
       weeklyOutreachGoal: Math.max(0, Math.min(100, Number(settings.weeklyOutreachGoal) || 5)),
     },
-    todos: (Array.isArray(s.todos) ? s.todos : []).slice(0, 300).map((t) => ({
-      id: str(t.id, 40), text: str(t.text, 500), done: Boolean(t.done), due: str(t.due, 10),
+    todos: (Array.isArray(s.todos) ? s.todos : []).slice(0, 1000).map((t) => ({
+      id: str(t.id, 40), list: str(t.list, 30) || "general", text: str(t.text, 500), done: Boolean(t.done),
+      due: str(t.due, 10), doneAt: str(t.doneAt, 10), createdAt: str(t.createdAt, 30),
     })),
     contacts: (Array.isArray(s.contacts) ? s.contacts : []).slice(0, 1000).map((c) => ({
       id: str(c.id, 40), name: str(c.name, 120), firm: str(c.firm, 20), firmName: str(c.firmName, 80),

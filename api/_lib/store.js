@@ -10,9 +10,9 @@ export const DEFAULT_STATE = {
   updatedAt: null,
   settings: { feeds: [], weeklyChatGoal: 3, weeklyOutreachGoal: 5 },
   todos: [
-    { id: "t1", text: "Send thank-you notes within a day of each coffee chat", done: false },
-    { id: "t2", text: "Ask Dr. MG about an MS-ISOM recommendation", done: false },
-    { id: "t3", text: "Get resume consulting-ready before December", done: false },
+    { id: "t1", list: "general", text: "Send thank-you notes within a day of each coffee chat", done: false },
+    { id: "t2", list: "ta", text: "Ask Dr. MG about an MS-ISOM recommendation", done: false },
+    { id: "t3", list: "general", text: "Get resume consulting-ready before December", done: false },
   ],
   contacts: [
     {
@@ -46,24 +46,27 @@ export const DEFAULT_STATE = {
 };
 
 const local = process.env.LOCAL_STATE_FILE; // for local testing only
+const useLocal = () => !process.env.BLOB_READ_WRITE_TOKEN && Boolean(local);
+const localPath = (path) => (path === PATH ? local : `${local}.${path.replace(/\W+/g, "_")}`);
 
 export function storageReady() {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN || local);
 }
 
-export async function readState() {
-  if (!process.env.BLOB_READ_WRITE_TOKEN && local) {
-    try { return JSON.parse(await fs.readFile(local, "utf8")); } catch { return structuredClone(DEFAULT_STATE); }
+/** Read a private JSON document. Returns `fallback` when it doesn't exist yet. */
+export async function readDoc(path, fallback = null) {
+  if (useLocal()) {
+    try { return JSON.parse(await fs.readFile(localPath(path), "utf8")); } catch { return fallback; }
   }
-  const res = await get(PATH, { access: "private", useCache: false });
-  if (!res) return structuredClone(DEFAULT_STATE);
+  const res = await get(path, { access: "private", useCache: false });
+  if (!res) return fallback;
   return JSON.parse(await new Response(res.stream).text());
 }
 
-export async function writeState(state) {
-  const body = JSON.stringify(state);
-  if (!process.env.BLOB_READ_WRITE_TOKEN && local) return fs.writeFile(local, body);
-  await put(PATH, body, {
+export async function writeDoc(path, doc) {
+  const body = JSON.stringify(doc);
+  if (useLocal()) return fs.writeFile(localPath(path), body);
+  await put(path, body, {
     access: "private",
     addRandomSuffix: false,
     allowOverwrite: true,
@@ -71,3 +74,10 @@ export async function writeState(state) {
     cacheControlMaxAge: 60,
   });
 }
+
+export async function readState() {
+  const s = await readDoc(PATH, null);
+  return s || structuredClone(DEFAULT_STATE);
+}
+
+export const writeState = (state) => writeDoc(PATH, state);

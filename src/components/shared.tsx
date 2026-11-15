@@ -1,18 +1,18 @@
 import { useState } from "react";
-import { MapPin } from "lucide-react";
+import { MapPin, Trash2 } from "lucide-react";
 import type { DueItem, Ev } from "@/lib/types";
 import { useData } from "@/lib/data";
 import { dayKey, fmtTime, relDay, zoned } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { catColor, Empty } from "@/components/ui/misc";
 
-export function EventRow({ ev, now = new Date(), compact }: { ev: Ev; now?: Date; compact?: boolean }) {
+export function EventRow({ ev, now = new Date(), compact, onDelete }: { ev: Ev; now?: Date; compact?: boolean; onDelete?: (ev: Ev) => void }) {
   const { life } = useData();
   const color = catColor(life, ev.cat);
   const past = ev.end ? ev.end < now : false;
   const live = ev.start && ev.end ? ev.start <= now && ev.end > now : false;
   return (
-    <li className={cn("flex gap-3", past && "opacity-55")}>
+    <li className={cn("group flex gap-3", past && "opacity-55")}>
       <span aria-hidden className="w-1 shrink-0 rounded-full" style={{ background: color }} />
       <div className={cn("min-w-0 flex-1", compact ? "py-1" : "py-1.5")}>
         <p className="text-xs font-semibold text-muted-fg">
@@ -27,6 +27,14 @@ export function EventRow({ ev, now = new Date(), compact }: { ev: Ev; now?: Date
           </p>
         )}
       </div>
+      {onDelete && ev.gid && (
+        <button
+          type="button" onClick={() => onDelete(ev)} aria-label={`Delete ${ev.title}`} title="Delete from Google Calendar"
+          className={cn("grid shrink-0 place-items-center rounded-lg text-muted-fg hover:bg-danger-soft hover:text-danger md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100", compact ? "size-8" : "size-11")}
+        >
+          <Trash2 className="size-4" />
+        </button>
+      )}
     </li>
   );
 }

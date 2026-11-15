@@ -1,5 +1,5 @@
 import * as Tabs from "@radix-ui/react-tabs";
-import { BriefcaseBusiness, CalendarDays, GraduationCap, LogOut, RefreshCw, Settings as Gear, Sun, Users } from "lucide-react";
+import { BriefcaseBusiness, CalendarDays, GraduationCap, ListChecks, LogOut, RefreshCw, Settings as Gear, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useData } from "@/lib/data";
 import { fmtDayLong, dayKey } from "@/lib/time";
@@ -10,14 +10,14 @@ import Settings from "@/views/Settings";
 import Today from "@/views/Today";
 import Week from "@/views/Week";
 import School from "@/views/School";
-import Involvements from "@/views/Involvements";
+import Todos from "@/views/Todos";
 import Network from "@/views/Network";
 
 const TABS = [
   { id: "today", label: "Today", icon: Sun, View: Today },
   { id: "week", label: "Week", icon: CalendarDays, View: Week },
+  { id: "todos", label: "To-dos", icon: ListChecks, View: Todos },
   { id: "school", label: "School", icon: GraduationCap, View: School },
-  { id: "life", label: "Involvements", short: "Orgs", icon: Users, View: Involvements },
   { id: "network", label: "Networking", short: "Network", icon: BriefcaseBusiness, View: Network },
 ];
 
@@ -27,9 +27,26 @@ const fromHash = () => {
 };
 
 export default function App() {
-  const { status, life, signOut, refreshCalendar, calendarLoading, stateError, dismissError } = useData();
+  const { status, life, signOut, refreshCalendar, calendarLoading, stateError, dismissError, notice, setNotice } = useData();
   const [tab, setTab] = useState(fromHash);
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Messages after returning from Google sign-in
+  useEffect(() => {
+    const g = new URLSearchParams(window.location.search).get("google");
+    if (!g) return;
+    const msg: Record<string, string> = {
+      connected: "Google Calendar is connected. You can now add and delete events from Today and Week.",
+      denied: "Google sign-in was canceled, so nothing changed.",
+      expired: "That Google sign-in took too long. Open Settings and connect again.",
+      error: "Google didn't finish connecting. Open Settings and try again.",
+      not_configured: "Google sign-in isn't set up on the server yet. See the setup steps in Settings.",
+      signed_out: "Sign in to the dashboard first, then connect Google from Settings.",
+    };
+    setNotice(msg[g] || null);
+    history.replaceState(null, "", window.location.pathname + window.location.hash);
+    if (g !== "connected") setSettingsOpen(true);
+  }, [setNotice]);
 
   useEffect(() => {
     const onHash = () => setTab(fromHash());
@@ -91,6 +108,13 @@ export default function App() {
           </Tabs.Trigger>
         ))}
       </Tabs.List>
+
+      {notice && (
+        <div role="status" className="mx-auto mt-4 flex max-w-6xl items-start justify-between gap-3 px-4 md:px-6">
+          <p className="flex-1 rounded-xl bg-primary-soft px-4 py-3 text-sm text-fg">{notice}</p>
+          <Button variant="outline" size="sm" onClick={() => setNotice(null)}>Dismiss</Button>
+        </div>
+      )}
 
       {stateError && (
         <div role="alert" className="mx-auto mt-4 flex max-w-6xl items-start justify-between gap-3 px-4 md:px-6">
