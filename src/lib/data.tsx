@@ -158,8 +158,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!life) return [];
     const today = dayKey();
     if (live && calendar) {
+      const hidden = life.hideOnCalendar || [];
+      const isHidden = (e: { course: string | null; title: string }) =>
+        hidden.some((c) => e.course === c || e.title.toUpperCase().includes(c));
       return calendar.events
-        .filter((e) => !e.due)
+        .filter((e) => !e.due && !isHidden(e))
         .flatMap((e) => {
           const start = e.start ? new Date(e.start) : undefined;
           const base: Ev = {

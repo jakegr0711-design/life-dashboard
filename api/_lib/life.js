@@ -63,10 +63,13 @@ export default {
     { cat: "career", any: ["Siemens", "MS-ISOM", "Information Session", "Coffee chat", "coffee chat"] },
   ],
 
+  // Class sessions from these courses are hidden on Today and Week.
+  // Their assignments and exams still show under Due soon.
+  hideOnCalendar: ["BUL4310", "QMB3250"],
+
   // Weekly template, used for Today/Week until the live calendar is linked.
   // day: 1 = Monday ... 7 = Sunday
   schedule: [
-    { day: 1, start: "10:00", end: "11:00", title: "BUL4310 Legal Environment", where: "Zoom", cat: "class" },
     { day: 1, start: "13:55", end: "14:45", title: "GEB2216 Lecture", where: "Carleton Auditorium (CAR 0100)", cat: "class" },
     { day: 1, start: "15:00", end: "17:00", title: "Dr. Trainor office hours", where: "233G Bryan Hall", cat: "oh" },
     { day: 1, start: "18:00", end: "19:00", title: "Rem meeting", where: "", cat: "rem" },
@@ -75,7 +78,6 @@ export default {
     { day: 2, start: "11:45", end: "13:40", title: "COM2380", where: "Turlington 2336", cat: "class" },
     { day: 2, start: "16:00", end: "18:00", title: "CGS2531 office hours (TA)", where: "", cat: "ta" },
     { day: 2, start: "18:00", end: "19:00", title: "GatorTech GBM", where: "", cat: "gatortech" },
-    { day: 3, start: "14:00", end: "15:00", title: "BUL4310 Legal Environment", where: "Zoom", cat: "class" },
     { day: 3, start: "14:30", end: "15:00", title: "Rem internal", where: "", cat: "rem" },
     { day: 4, start: "09:35", end: "10:25", title: "GEB2216", where: "Heavener 260", cat: "class" },
     { day: 4, start: "10:30", end: "12:00", title: "Dr. Calvert office hours", where: "2336 Bryan Hall", cat: "oh" },

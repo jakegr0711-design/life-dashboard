@@ -8,6 +8,7 @@ export type Life = {
   };
   categories: Record<string, Category>;
   matchers: { cat: string; any: string[] }[];
+  hideOnCalendar: string[];
   schedule: { day: number; start: string; end: string; title: string; where: string; cat: string }[];
   classes: { code: string; name: string; instructor?: string; focus: string; meetings: string[] }[];
   teaching: { code: string; role: string; instructor: string; meetings: string[]; focus: string };
