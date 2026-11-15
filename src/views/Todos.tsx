@@ -15,7 +15,7 @@ export default function Todos(_: ViewProps) {
   const { life, state, update } = useData();
   const [tab, setTab] = useState(saved);
   if (!life) return null;
-  if (!state) return <Empty>To-dos need storage, which isn't connected yet.</Empty>;
+  if (!state) return <Empty>To-dos live in Airtable, which isn't connected yet. Add AIRTABLE_TOKEN in Vercel and redeploy.</Empty>;
 
   const today = dayKey();
   const choose = (id: string) => { setTab(id); try { localStorage.setItem(KEY, id); } catch { /* ignore */ } };
@@ -30,6 +30,10 @@ export default function Todos(_: ViewProps) {
           <h2 className="text-xl font-extrabold tracking-tight">To-dos</h2>
           <p className="text-sm text-muted-fg">{allOpen.length} open{dueWeek ? ` · ${dueWeek} due in the next week` : ""}</p>
         </div>
+        <a href="https://airtable.com/appme1wpwwOElsxLE/tbl4lUmdcJx0vjbKG" target="_blank" rel="noreferrer"
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold text-primary-strong hover:bg-muted">
+          Open in Airtable <ExternalLink className="size-4" aria-hidden />
+        </a>
       </div>
 
       <Tabs.List aria-label="To-do lists" className="mb-5 flex flex-wrap gap-2">

@@ -39,6 +39,15 @@ export function categorize(life: Life, title: string) {
 
 const TA_COURSES = ["CGS2531"];
 
+function diff<T extends { id: string }>(a: T[], b: T[]) {
+  const before = new Map(a.map((x) => [x.id, x]));
+  const after = new Map(b.map((x) => [x.id, x]));
+  const create = b.filter((x) => !before.has(x.id));
+  const update = b.filter((x) => before.has(x.id) && JSON.stringify(before.get(x.id)) !== JSON.stringify(x));
+  const del = a.filter((x) => !after.has(x.id)).map((x) => x.id);
+  return create.length || update.length || del.length ? { create, update, delete: del } : undefined;
+}
+
 export function DataProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>("loading");
   const [life, setLife] = useState<Life | null>(null);
@@ -49,8 +58,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const stateRef = useRef<State | null>(null);
-  const version = useRef(0);
   const queue = useRef<Promise<void>>(Promise.resolve());
+  const pending = useRef(0);
+  const idMap = useRef<Record<string, string>>({});
+  const remap = (v: unknown): unknown =>
+    typeof v === "string" ? idMap.current[v] || v : Array.isArray(v) ? v.map((x) => (typeof x === "string" ? idMap.current[x] || x : x)) : v;
 
   const loadCalendar = useCallback(async () => {
     setCalendarLoading(true);
@@ -80,7 +92,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (s?.state) {
           for (const t of s.state.todos || []) t.list = t.list || "general";
           stateRef.current = s.state;
-          version.current = s.state.version || 0;
           setState(s.state);
         }
       }
@@ -92,44 +103,65 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { load(); }, [load]);
 
+
+  // Saves only what changed (created, edited or deleted records) to Airtable.
+  const update = useCallback((mutate: (s: State) => State | void) => {
+    if (!stateRef.current) return;
+    const prev = stateRef.current;
+    const draft = structuredClone(prev);
+    const next = (mutate(draft) || draft) as State;
+    stateRef.current = next;
+    setState(next);
+    const ops = {
+      todos: diff(prev.todos, next.todos),
+      contacts: diff(prev.contacts, next.contacts),
+      settings: JSON.stringify(prev.settings) !== JSON.stringify(next.settings) ? next.settings : undefined,
+    };
+    if (!ops.todos && !ops.contacts && !ops.settings) return;
+    pending.current++;
+    queue.current = queue.current.then(async () => {
+      try {
+        const body = JSON.stringify(ops, (k, v) => (k === "id" || k === "delete" ? remap(v) : v));
+        const r = await fetch("/api/state", { method: "PATCH", headers: { "Content-Type": "application/json" }, body });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          setStateError(j.message ? `Couldn't save to Airtable: ${j.message}` : "Couldn't save your last change. Check your connection and try again.");
+          return;
+        }
+        // swap temporary ids for the Airtable record ids
+        const ids: Record<string, string> = j.ids || {};
+        if (Object.keys(ids).length) {
+          Object.assign(idMap.current, ids);
+          const swap = <T extends { id: string }>(arr: T[]) => arr.map((x) => (ids[x.id] ? { ...x, id: ids[x.id] } : x));
+          stateRef.current = { ...stateRef.current!, todos: swap(stateRef.current!.todos), contacts: swap(stateRef.current!.contacts) };
+          setState(stateRef.current);
+        }
+      } catch {
+        setStateError("Couldn't save your last change. Check your connection and try again.");
+      } finally {
+        pending.current--;
+      }
+    });
+  }, []);
+
+  // Pull fresh data from Airtable (picks up edits made in the Airtable app)
+  const reloadState = useCallback(async () => {
+    if (pending.current > 0) return;
+    const s = await fetch("/api/state").then((x) => (x.ok ? x.json() : null)).catch(() => null);
+    if (s?.state && pending.current === 0) {
+      stateRef.current = s.state;
+      setState(s.state);
+    }
+  }, []);
+
   // Refresh the calendar every 10 minutes and when the tab comes back into view
   useEffect(() => {
     if (status !== "ready") return;
     const id = setInterval(loadCalendar, 10 * 60 * 1000);
-    const onVis = () => document.visibilityState === "visible" && loadCalendar();
+    const onVis = () => { if (document.visibilityState === "visible") { loadCalendar(); reloadState(); } };
     document.addEventListener("visibilitychange", onVis);
     return () => { clearInterval(id); document.removeEventListener("visibilitychange", onVis); };
-  }, [status, loadCalendar]);
-
-  const update = useCallback((mutate: (s: State) => State | void) => {
-    if (!stateRef.current) return;
-    const draft = structuredClone(stateRef.current);
-    const next = (mutate(draft) || draft) as State;
-    stateRef.current = next;
-    setState(next);
-    queue.current = queue.current.then(async () => {
-      try {
-        const r = await fetch("/api/state", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ state: stateRef.current, baseVersion: version.current }),
-        });
-        const j = await r.json().catch(() => ({}));
-        if (r.status === 409 && j.state) {
-          version.current = j.state.version;
-          stateRef.current = j.state;
-          setState(j.state);
-          setStateError("This dashboard was changed on another device, so your last edit wasn't saved. The latest version is loaded; make the edit again.");
-        } else if (r.ok && j.state) {
-          version.current = j.state.version;
-        } else {
-          setStateError("Couldn't save your last change. Check your connection and try again.");
-        }
-      } catch {
-        setStateError("Couldn't save your last change. Check your connection and try again.");
-      }
-    });
-  }, []);
+  }, [status, loadCalendar, reloadState]);
 
   const signIn = useCallback(async (passcode: string) => {
     const r = await fetch("/api/login", {

@@ -11,11 +11,21 @@ Today, week, classes, involvements, and an MBB networking tracker. Vite + React 
    - Framework: Vite (detected automatically)
    - Environment Variables: add `DASHBOARD_PASSCODE` with your passcode
    - Click **Deploy**
-4. When it finishes, open the project, go to **Storage**, click **Create**, choose **Blob**, name it `jake-life-dashboard`, set access to **Private**, and connect it to the project for all environments. This adds `BLOB_READ_WRITE_TOKEN`.
-5. Go to **Deployments**, open the menu on the latest deployment, and click **Redeploy** so the site picks up the storage.
+4. Connect Airtable (see below), then redeploy.
+5. (No other storage needed.)
 6. Open the site, sign in with your passcode, click the gear, and add your calendar links:
    - Google Calendar: calendar.google.com > Settings > your calendar > Integrate calendar > Secret address in iCal format
    - Canvas: Calendar > Calendar Feed (bottom right)
+
+## Airtable (to-dos, networking, settings)
+
+Everything you edit in the dashboard lives in the Airtable base **Jake's Dashboard** (tables: To-dos, Contacts, Settings). You can edit it in Airtable too; the dashboard picks up changes when you switch back to its tab.
+
+1. Go to https://airtable.com/create/tokens and click **Create token**. Name it `Life dashboard`.
+2. Scopes: `data.records:read` and `data.records:write`. Access: the **Jake's Dashboard** base.
+3. Copy the token. In Vercel, open the `life-dashboard` project, then **Settings > Environment Variables**, add `AIRTABLE_TOKEN` with the token, and redeploy.
+
+Don't rename the tables or fields in Airtable, or the dashboard won't find them. Adding new rows, editing values and adding extra fields are all fine.
 
 ## Two-way Google Calendar (one time, about 10 minutes)
 
@@ -36,7 +46,7 @@ Always open the dashboard at that exact address. Google only accepts the redirec
 ## Editing
 
 - Classes, involvements, key dates, links, and which to-do tabs show: `api/_lib/life.js`
-- Networking contacts, to-dos, and calendar links are edited in the app and saved to private Blob storage.
+- Networking contacts, to-dos, calendar links and goals are saved in the Airtable base Jake's Dashboard.
 - Sign-in pauses for 15 minutes after 5 wrong passcodes in a row.
 - Change the passcode anytime: Settings > Environment Variables > `DASHBOARD_PASSCODE`, then redeploy.
 

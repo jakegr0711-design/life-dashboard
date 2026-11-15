@@ -1,5 +1,5 @@
 import { requireAuth } from "./_lib/auth.js";
-import { readState, storageReady } from "./_lib/store.js";
+import { readFeeds, storageReady } from "./_lib/store.js";
 import { expandFeed, feedKind, normalizeUrl } from "./_lib/ics.js";
 import { connection, googleConfigured, listEvents } from "./_lib/google.js";
 
@@ -40,8 +40,7 @@ export default async function handler(req, res) {
   let feeds = envFeeds();
   if (storageReady()) {
     try {
-      const state = await readState();
-      feeds = [...(state.settings?.feeds || []), ...feeds];
+      feeds = [...(await readFeeds()), ...feeds];
     } catch (e) {
       return res.status(500).json({ error: "storage_unavailable", message: e.message });
     }

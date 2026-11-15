@@ -78,7 +78,7 @@ export default function Network(_: ViewProps) {
 
   if (!life) return null;
   if (!storage || !state) {
-    return <Empty>Networking needs storage, which isn't connected yet. Once it's on, contacts sync across your phone and laptop.</Empty>;
+    return <Empty>Networking lives in Airtable, which isn't connected yet. Add AIRTABLE_TOKEN in Vercel and redeploy.</Empty>;
   }
 
   const wk = weekStart(today);
@@ -105,7 +105,13 @@ export default function Network(_: ViewProps) {
           <h2 className="text-xl font-extrabold tracking-tight">MBB networking</h2>
           <p className="text-sm text-muted-fg">Summer 2028 internship cycle. Track every conversation and never miss a follow-up.</p>
         </div>
-        <Button onClick={() => { setEditing(blank()); setIsNew(true); }}><Plus /> Add contact</Button>
+        <div className="flex flex-wrap gap-2">
+          <a href="https://airtable.com/appme1wpwwOElsxLE/tbl4MLWsSVWIZfZtI" target="_blank" rel="noreferrer"
+            className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-line bg-card px-4 text-sm font-semibold hover:bg-muted">
+            Open in Airtable <ExternalLink className="size-4" aria-hidden />
+          </a>
+          <Button onClick={() => { setEditing(blank()); setIsNew(true); }}><Plus /> Add contact</Button>
+        </div>
       </div>
 
       {/* Firm summary */}

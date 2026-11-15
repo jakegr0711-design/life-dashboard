@@ -36,7 +36,7 @@ export default function Settings({ open, onOpenChange }: { open: boolean; onOpen
   return (
     <Dialog open={open} onOpenChange={onOpenChange} title="Settings" description="Link your calendars and set weekly networking goals." wide>
       {!storage || !state ? (
-        <p className="text-sm text-muted-fg">Storage isn't connected yet, so settings can't be saved.</p>
+        <p className="text-sm text-muted-fg">Airtable isn't connected yet, so settings can't be saved. Add AIRTABLE_TOKEN in Vercel and redeploy.</p>
       ) : (
         <div className="space-y-6">
           <section aria-labelledby="google-h" className="rounded-xl border border-line p-4">
@@ -75,7 +75,7 @@ export default function Settings({ open, onOpenChange }: { open: boolean; onOpen
           <section aria-labelledby="feeds-h">
             <h3 id="feeds-h" className="font-bold">Read-only calendar feeds</h3>
             <p className="mt-1 text-sm leading-relaxed text-muted-fg">
-              Private links the dashboard reads from, like your Canvas feed. {google.connected ? "Your main Google Calendar already comes through the connection above, so you only need Canvas and any extra calendars here." : "They're stored privately and only used by your dashboard."}
+              Private links the dashboard reads from, like your Canvas feed. {google.connected ? "Your main Google Calendar already comes through the connection above, so you only need Canvas and any extra calendars here." : "They're saved in the Settings table of your Airtable base."}
             </p>
 
             <ul className="mt-3 space-y-2">
